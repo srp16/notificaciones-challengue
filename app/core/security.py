@@ -1,6 +1,17 @@
+from fastapi import Depends, HTTPException
+from fastapi.security import OAuth2PasswordBearer
 from datetime import datetime, timedelta, timezone
 from pwdlib import PasswordHash
 import jwt
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.database import get_db
+from app.models.user import User
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+SECRET_KEY = "private_key"
+ALGORITHM = "HS256"
 
 password_hash = PasswordHash.recommended()
 
@@ -15,4 +26,19 @@ def create_access_token(user_id: int) -> str:
         "sub": str(user_id),
         "exp": datetime.now(timezone.utc) + timedelta(minutes=30)
     }
-    return jwt.encode(payload, "private_key", algorithm="HS256")
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+) -> User:
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id= int(payload["sub"])
+    except(jwt.InvalidTokenError, KeyError, ValueError):
+        raise HTTPException(status_code = 401, detail="Token invalido")
+    user = db.scalar(select(User).where(User.id == user_id))
+    if user is None:
+        raise HTTPException(status_code = 401, detail="Token invalido")
+    return user
+         

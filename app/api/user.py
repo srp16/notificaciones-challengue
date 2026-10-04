@@ -3,7 +3,7 @@ from fastapi.exceptions import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.security import create_access_token, hash_password, verify_password
+from app.core.security import create_access_token, get_current_user, hash_password, verify_password
 from app.database import get_db
 from app.models.user import User
 from app.schemas.user import LoginRead, Token, UserCreate, UserRead
@@ -41,3 +41,7 @@ def login(
     if not verify_password(login.password, row.hashed_password):
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
     return Token(access_token=create_access_token(row.id))
+
+@router.get("/me")
+def me(user: User = Depends(get_current_user)) -> UserRead:
+    return UserRead(name = user.name, email = user.email)
