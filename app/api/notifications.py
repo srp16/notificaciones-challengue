@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.channels.base import get_channel
 from app.core.security import get_current_user
 from app.database import get_db
 from app.models.notification import Notification
@@ -21,6 +22,8 @@ def create(
     db.add(row)
     db.commit()
     db.refresh(row)
+    
+    get_channel(row.channel).send(row, user)
     return row
 
 @router.get("") 
